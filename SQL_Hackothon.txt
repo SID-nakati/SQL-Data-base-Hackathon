@@ -1,0 +1,112 @@
+mysql> show tables;
++-------------------------+
+| Tables_in_SQL_Assesment |
++-------------------------+
+| employees               |
+| orders                  |
+| products                |
+| sales                   |
++-------------------------+
+4 rows in set (0.00 sec)
+
+mysql> select * from products;
++------------+--------------+-------------+--------+
+| product_id | product_name | category_id | price  |
++------------+--------------+-------------+--------+
+|        201 | Widget       |          10 |  25.00 |
+|        202 | Gadget       |          10 |  40.00 |
+|        203 | Thingamajig  |          11 | 100.00 |
+|        204 | Doohickey    |          12 |  10.00 |
++------------+--------------+-------------+--------+
+4 rows in set (0.00 sec)
+mysql> select * from sales;
++---------+------------+-------------+--------------+------------+
+| sale_id | product_id | category_id | sales_amount | sale_date  |
++---------+------------+-------------+--------------+------------+
+|       1 |        201 |          10 |      1000.00 | 2024-01-01 |
+|       2 |        202 |          10 |      1500.00 | 2024-01-03 |
+|       3 |        203 |          11 |      2000.00 | 2024-01-04 |
+|       4 |        201 |          10 |       500.00 | 2024-01-05 |
+|       5 |        203 |          11 |      1000.00 | 2024-01-06 |
++---------+------------+-------------+--------------+------------+
+5 rows in set (0.00 sec)
+
+mysql> select * from employees;
++-------------+---------+---------------+-----------+----------+
+| employee_id | name    | department_id | job_title | salary   |
++-------------+---------+---------------+-----------+----------+
+|           1 | Alice   |           101 | Engineer  | 70000.00 |
+|           2 | Bob     |           101 | Engineer  | 80000.00 |
+|           3 | Charlie |           102 | Analyst   | 65000.00 |
+|           4 | Daisy   |           103 | Manager   | 90000.00 |
+|           5 | Ethan   |           102 | Analyst   | 70000.00 |
++-------------+---------+---------------+-----------+----------+
+5 rows in set (0.00 sec)
+mysql> select * from orders;
++----------+-------------+------------+------------+--------+-----------+--------------+
+| order_id | customer_id | product_id | order_date | region | status    | sales_amount |
++----------+-------------+------------+------------+--------+-----------+--------------+
+|     1001 |         301 |        201 | 2024-02-01 | North  | Shipped   |       500.00 |
+|     1002 |         302 |        202 | 2024-02-01 | North  | Pending   |       600.00 |
+|     1003 |         303 |        203 | 2024-02-02 | South  | Shipped   |       800.00 |
+|     1004 |         301 |        202 | 2024-02-03 | North  | Shipped   |       900.00 |
+|     1005 |         304 |        203 | 2024-02-03 | South  | Cancelled |       750.00 |
+|     1006 |         302 |        201 | 2024-02-04 | North  | Pending   |       300.00 |
++----------+-------------+------------+------------+--------+-----------+--------------+
+6 rows in set (0.00 sec)
+
+
+mysql> SELECT *  FROM ( SELECT p.category_id, s.product_id, p.product_name, SUM(s.sales_amount) AS total_sales, ROW_NUMBER() OVER (PARTITION BY p.category_id ORDER BY SUM(s.sales_amount) DESC) AS rn FROM sales s JOIN products p ON s.product_id = p.product_id GROUP BY p.category_id, s.product_id, p.product_name ) ranked WHERE rn = 1;+-------------+------------+--------------+-------------+----+
+| category_id | product_id | product_name | total_sales | rn |
++-------------+------------+--------------+-------------+----+
+|          10 |        201 | Widget       |     1500.00 |  1 |
+|          11 |        203 | Thingamajig  |     3000.00 |  1 |
++-------------+------------+--------------+-------------+----+
+2 rows in set (0.00 sec)
+
+
+mysql> SELECT department_id, AVG(salary) AS avg_salary FROM employees GROUP BY department_id HAVING AVG(salary) = (SELECT MAX(avg_salary) FROM ( SELECT AVG(salary) AS avg_salary FROM employees GROUP BY department_id ) AS sub );
++---------------+--------------+
+| department_id | avg_salary   |
++---------------+--------------+
+|           103 | 90000.000000 |
++---------------+--------------+
+1 row in set (0.00 sec)
+
+
+mysql> SELECT e.employee_id, e.name, e.department_id, e.salary FROM employees e JOIN ( SELECT department_id, AVG(salary) AS avg_salary FROM employees GROUP BY department_id ) dept_avg ON e.department_id = dept_avg.department_id WHERE e.salary > dept_avg.avg_salary;
++-------------+-------+---------------+----------+
+| employee_id | name  | department_id | salary   |
++-------------+-------+---------------+----------+
+|           2 | Bob   |           101 | 80000.00 |
+|           5 | Ethan |           102 | 70000.00 |
++-------------+-------+---------------+----------+
+2 rows in set (0.00 sec)
+
+
+mysql> SELECT region, customer_id, order_count FROM ( SELECT region, customer_id, COUNT(*) AS order_count, RANK() OVER (PARTITION BY region ORDER BY COUNT(*) DESC) AS rnk FROM orders GROUP BY region, customer_id ) ranked WHERE rnk = 1;
++--------+-------------+-------------+
+| region | customer_id | order_count |
++--------+-------------+-------------+
+| North  |         301 |           2 |
+| North  |         302 |           2 |
+| South  |         303 |           1 |
+| South  |         304 |           1 |
++--------+-------------+-------------+
+4 rows in set (0.00 sec)
+
+mysql> SELECT category_id FROM products GROUP BY category_id HAVING AVG(price) > ( SELECT AVG(price) FROM products );
++-------------+
+| category_id |
++-------------+
+|          11 |
++-------------+
+1 row in set (0.00 sec)
+
+mysql> SELECT product_id, product_name FROM products WHERE product_id NOT IN ( SELECT DISTINCT product_id FROM orders );
++------------+--------------+
+| product_id | product_name |
++------------+--------------+
+|        204 | Doohickey    |
++------------+--------------+
+1 row in set (0.00 sec)
